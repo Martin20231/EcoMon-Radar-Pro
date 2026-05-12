@@ -121,11 +121,11 @@
         let customPortals = JSON.parse(localStorage.getItem('myPortals') || '[]');
 
         const species = [
-            { n: "Pyrox", img: "pyrox.png", desc: "The Ignis Sentinel" },
-            { n: "Gastroq", img: "gastroq.png", desc: "The Aquarian Mechanist" },
-            { n: "Aethel", img: "aethel.png", desc: "The Ethereal Weaver" },
-            { n: "Kinetix", img: "kinetix.png", desc: "The Kinetic Vanguard" }
-        ];
+    { n: "Pyrox", img: "pyrox.png", desc: "The Ignis Sentinel" },
+    { n: "Gastroq", img: "gastroq.png", desc: "The Aquarian Mechanist" },
+    { n: "Aethel", img: "aethel.png", desc: "The Ethereal Weaver" },
+    { n: "Kinetix", img: "kinetix.png", desc: "The Kinetic Vanguard" }
+];
 
         navigator.geolocation.watchPosition(p => {
             userPos = [p.coords.longitude, p.coords.latitude];
