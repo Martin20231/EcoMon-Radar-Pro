@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>EcoMon: Global Pro</title>
+    <title>EcoMon: Portal Explorer</title>
     <script src='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'></script>
     <link href='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css' rel='stylesheet' />
     <style>
@@ -21,38 +21,32 @@
             border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px var(--portal);
         }
 
-        /* Dashboard & Tabs */
-        .dashboard { 
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 42vh; 
-            background: var(--panel); border-top: 2px solid var(--accent); z-index: 5000; 
-            padding: 15px; box-sizing: border-box; display: flex; flex-direction: column;
+        /* Portal Detail View (Das Popup) */
+        #portal-detail {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 11000; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; box-sizing: border-box;
         }
+        .detail-card {
+            background: var(--panel); border: 2px solid var(--portal);
+            border-radius: 20px; width: 100%; max-width: 400px; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #detail-img { width: 100%; height: 300px; object-fit: cover; }
+        .detail-info { padding: 20px; text-align: center; width: 100%; }
+
+        /* Dashboard & Marker */
+        .dashboard { position: fixed; bottom: 0; left: 0; width: 100%; height: 40vh; background: var(--panel); border-top: 2px solid var(--accent); z-index: 5000; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
         .tab-nav { display: flex; background: #2c2c2e; border-radius: 12px; margin-bottom: 15px; padding: 4px; }
-        .tab-btn { flex: 1; padding: 12px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; border: none; color: white; background: transparent; text-transform: uppercase; }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; border: none; color: white; background: transparent; }
         .tab-btn.active { background: var(--accent); color: black; }
         .content-scroll { flex: 1; overflow-y: auto; }
 
-        /* Marker Styles */
         .monster-marker { font-size: 50px; cursor: pointer; filter: drop-shadow(0 0 10px var(--accent)); z-index: 10; padding: 15px; }
-        .portal-marker { 
-            width: 55px; height: 55px; border-radius: 50%; border: 3px solid var(--portal);
-            background-size: cover; background-position: center;
-            box-shadow: 0 0 20px var(--portal); cursor: pointer; z-index: 5;
-        }
+        .portal-marker { width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--portal); background-size: cover; background-position: center; box-shadow: 0 0 15px var(--portal); cursor: pointer; }
 
-        /* Catch-Screen */
-        #catch-screen { 
-            position: fixed; top:0; left:0; width:100%; height:100%; 
-            background: rgba(0,0,0,0.95); z-index: 9999; display: none; 
-            flex-direction: column; align-items: center; justify-content: center;
-        }
-        .btn-main { background: var(--accent); border:none; padding: 15px 45px; border-radius: 30px; font-weight: bold; cursor: pointer; font-size: 18px; }
-
-        /* Kamera Overlay */
-        #camera-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: black; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center;
-        }
+        #camera-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; }
         #video { width: 100%; max-height: 80%; object-fit: cover; }
     </style>
 </head>
@@ -67,21 +61,24 @@
 
     <button class="btn-create" onclick="openCamera()">➕ PORTAL ERSTELLEN</button>
 
+    <div id="portal-detail" onclick="closePortalDetail()">
+        <div class="detail-card" onclick="event.stopPropagation()">
+            <img id="detail-img" src="" alt="Portal Foto">
+            <div class="detail-info">
+                <h2 id="detail-name" style="margin: 0; color: var(--portal);">Name</h2>
+                <p style="color: #888; margin: 10px 0;">Energie wird übertragen...</p>
+                <button class="stat-badge" style="background: var(--portal); border:none; width: 100%; padding: 15px;" onclick="closePortalDetail()">SCHLIESSEN</button>
+            </div>
+        </div>
+    </div>
+
     <div id="camera-overlay">
         <video id="video" autoplay playsinline></video>
         <div style="margin-top: 20px; display: flex; gap: 20px;">
             <button class="stat-badge" style="background: #ff3b30; border:none;" onclick="closeCamera()">X</button>
-            <button class="stat-badge" style="background: var(--portal); border:none; padding: 15px 30px;" onclick="takePhoto()">FOTO MACHEN</button>
+            <button class="stat-badge" style="background: var(--portal); border:none; padding: 15px 30px;" onclick="takePhoto()">FOTO & NAME</button>
         </div>
         <canvas id="canvas" style="display:none;"></canvas>
-    </div>
-
-    <div id="catch-screen">
-        <h2 id="catch-name">WILDES TIER</h2>
-        <div id="catch-emoji" style="font-size: 120px; margin: 30px 0;">🦊</div>
-        <button id="catchButton" class="btn-main" onclick="attemptCatch()">EINFANGEN</button>
-        <p style="color: var(--portal); margin-top: 15px; font-weight: bold;">Fernfang: 6 Radars</p>
-        <p onclick="exitCatch()" style="margin-top: 25px; opacity: 0.5; cursor: pointer;">Flüchten</p>
     </div>
 
     <div class="dashboard">
@@ -90,188 +87,99 @@
             <button id="btn-inv" class="tab-btn" onclick="showTab('inv')">Inventar</button>
             <button id="btn-stat" class="tab-btn" onclick="showTab('stat')">Status</button>
         </div>
-
         <div id="tab-dex" class="content-scroll">
-            <div id="dexList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px;">
-                <p style="opacity:0.4;">Sammle Radar-Energie bei Portalen!</p>
-            </div>
+            <div id="dexList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px;"></div>
         </div>
-
-        <div id="tab-inv" class="content-scroll" style="display:none; padding: 10px;">
-            <div style="background: var(--card); padding: 15px; border-radius: 12px; margin-bottom:10px; display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 30px;">📡</span>
-                <div><b>Radar-Module</b><br><small>Fernfang (Kosten: 6)</small></div>
-                <b id="invRadar" style="margin-left: auto; color: var(--portal); font-size: 20px;">0</b>
-            </div>
-            <div style="background: var(--card); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 30px;">⚾</span>
-                <div><b>Eco-Balls</b><br><small>Zum Fangen</small></div>
-                <b id="invBalls" style="margin-left: auto; color: var(--accent); font-size: 20px;">20</b>
-            </div>
-        </div>
-
-        <div id="tab-stat" class="content-scroll" style="display:none; padding: 10px;">
-            <div style="background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #333;">
-                <b>Level 2 Explorer</b>
-                <div style="width:100%; height:12px; background:#333; border-radius:6px; margin:15px 0; overflow:hidden;">
-                    <div style="width:70%; height:100%; background:var(--accent);"></div>
-                </div>
-                <small>70 / 100 XP bis Level 3</small>
-            </div>
-        </div>
+        <div id="tab-inv" class="content-scroll" style="display:none;"></div>
+        <div id="tab-stat" class="content-scroll" style="display:none;"></div>
     </div>
 
     <script>
         let map, userPos, userMarker;
         let balls = 20, radars = 0;
-        let myMonsters = {};
-        let activeTarget = null;
         let lastPortalTime = 0;
         let customPortals = JSON.parse(localStorage.getItem('myPortals') || '[]');
-
-        const MIN_DIST = 0.05; 
-
-        function getDistance(p1, p2) {
-            if(!p1 || !p2) return 999;
-            return Math.sqrt(Math.pow(p1[0]-p2[0], 2) + Math.pow(p1[1]-p2[1], 2)) * 111;
-        }
 
         navigator.geolocation.watchPosition(p => {
             userPos = [p.coords.longitude, p.coords.latitude];
             if (!map) {
-                map = new maplibregl.Map({
-                    container: 'map',
-                    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-                    center: userPos, zoom: 17, pitch: 60
-                });
+                map = new maplibregl.Map({ container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', center: userPos, zoom: 17, pitch: 60 });
                 map.on('load', () => {
-                    const el = document.createElement('div');
-                    el.style = "width:16px; height:16px; background:white; border-radius:50%; border:3px solid var(--accent);";
+                    const el = document.createElement('div'); el.style = "width:16px; height:16px; background:white; border-radius:50%; border:3px solid var(--accent);";
                     userMarker = new maplibregl.Marker(el).setLngLat(userPos).addTo(map);
                     loadCustomPortals();
-                    startSpawning();
                 });
             } else { userMarker.setLngLat(userPos); }
         }, null, { enableHighAccuracy: true });
 
-        // KAMERA LOGIK
         async function openCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 document.getElementById('video').srcObject = stream;
                 document.getElementById('camera-overlay').style.display = 'flex';
-            } catch (err) { alert("Kamera-Fehler: " + err); }
+            } catch (err) { alert("Kamera-Fehler"); }
         }
 
         function closeCamera() {
             const stream = document.getElementById('video').srcObject;
-            if(stream) stream.getTracks().forEach(track => track.stop());
+            if(stream) stream.getTracks().forEach(t => t.stop());
             document.getElementById('camera-overlay').style.display = 'none';
         }
 
         function takePhoto() {
+            const portalName = prompt("Wie soll dieses Portal heißen?", "Neues Portal");
+            if(!portalName) return;
+
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             const photoData = canvas.toDataURL('image/jpeg', 0.5);
-            savePortal(photoData);
-            closeCamera();
-        }
-
-        function savePortal(img) {
-            const newP = { pos: userPos, image: img, id: Date.now() };
+            
+            const newP = { pos: userPos, image: photoData, name: portalName, id: Date.now() };
             customPortals.push(newP);
             localStorage.setItem('myPortals', JSON.stringify(customPortals));
             addPortalToMap(newP);
-        }
-
-        function loadCustomPortals() {
-            customPortals.forEach(p => addPortalToMap(p));
+            closeCamera();
         }
 
         function addPortalToMap(pData) {
             const el = document.createElement('div');
             el.className = 'portal-marker';
             el.style.backgroundImage = `url(${pData.image})`;
-            el.onclick = () => {
-                const now = Date.now();
-                if(now - lastPortalTime < 60000) return alert("Portal lädt auf...");
-                lastPortalTime = now;
-                radars += 3; updateUI();
-                alert("Radar-Energie +3 erhalten!");
-            };
+            el.onclick = () => openPortalDetail(pData);
             new maplibregl.Marker({element: el}).setLngLat(pData.pos).addTo(map);
         }
 
-        // MONSTER LOGIK
-        function startSpawning() {
-            setInterval(() => {
-                if(!userPos) return;
-                const sPos = [userPos[0] + (Math.random()-0.5)*0.008, userPos[1] + (Math.random()-0.5)*0.008];
-                const species = [{n:"Volcarox", e:"🦊"}, {n:"Pandora", e:"🐼"}, {n:"Quaklord", e:"🦆"}];
-                const type = species[Math.floor(Math.random()*species.length)];
-                
-                const el = document.createElement('div');
-                el.className = 'monster-marker';
-                el.innerHTML = type.e;
-                const marker = new maplibregl.Marker({element: el}).setLngLat(sPos).addTo(map);
+        function loadCustomPortals() { customPortals.forEach(p => addPortalToMap(p)); }
 
-                el.onclick = () => {
-                    activeTarget = { ...type, marker };
-                    openCatch();
-                };
-            }, 10000);
-        }
+        function openPortalDetail(pData) {
+            document.getElementById('detail-img').src = pData.image;
+            document.getElementById('detail-name').innerText = pData.name.toUpperCase();
+            document.getElementById('portal-detail').style.display = 'flex';
 
-        function openCatch() {
-            document.getElementById('catch-emoji').innerText = activeTarget.e;
-            document.getElementById('catch-name').innerText = activeTarget.n.toUpperCase();
-            document.getElementById('catch-screen').style.display = 'flex';
-        }
-
-        function attemptCatch() {
-            if(balls <= 0) return alert("Keine Bälle!");
-            const d = getDistance(userPos, activeTarget.marker.getLngLat().toArray());
-            if(d > MIN_DIST) {
-                if(radars < 6) return alert("Du brauchst 6 Radars für Fernfang!");
-                radars -= 6;
+            // Energie-Logik (1 Min Cooldown)
+            const now = Date.now();
+            if(now - lastPortalTime > 60000) {
+                lastPortalTime = now;
+                radars += 3;
+                updateUI();
+                alert("Portal-Energie übertragen!");
             }
-            balls--; updateUI();
-            if(Math.random() > 0.4) {
-                const n = activeTarget.n;
-                if(!myMonsters[n]) myMonsters[n] = { ...activeTarget, count: 0 };
-                myMonsters[n].count++;
-                activeTarget.marker.remove();
-                renderDex(); alert(n + " gefangen!"); exitCatch();
-            } else { alert("Entwischt!"); exitCatch(); }
         }
 
-        function exitCatch() { document.getElementById('catch-screen').style.display = 'none'; }
-        
-        function showTab(t) {
-            document.getElementById('tab-dex').style.display = t === 'dex' ? 'block' : 'none';
-            document.getElementById('tab-inv').style.display = t === 'inv' ? 'block' : 'none';
-            document.getElementById('tab-stat').style.display = t === 'stat' ? 'block' : 'none';
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('btn-' + t).classList.add('active');
-        }
-
-        function renderDex() {
-            document.getElementById('dexList').innerHTML = Object.values(myMonsters).map(m => `
-                <div style="background:var(--card); padding:10px; border-radius:12px; min-width:100px; text-align:center;">
-                    <div style="font-size:30px;">${m.e}</div>
-                    <b>${m.n}</b><br><small>${m.count}x</small>
-                </div>
-            `).join('');
-        }
+        function closePortalDetail() { document.getElementById('portal-detail').style.display = 'none'; }
 
         function updateUI() {
             document.getElementById('topBalls').innerText = balls;
-            document.getElementById('invBalls').innerText = balls;
             document.getElementById('topRadar').innerText = radars;
-            document.getElementById('invRadar').innerText = radars;
+        }
+
+        function showTab(t) {
+            document.querySelectorAll('.content-scroll').forEach(s => s.style.display = 'none');
+            document.getElementById('tab-' + t).style.display = 'block';
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + t).classList.add('active');
         }
     </script>
 </body>
