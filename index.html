@@ -21,20 +21,20 @@
             border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px var(--portal);
         }
 
-        /* Portal Detail View (Das Popup) */
-        #portal-detail {
+        /* Detail View (Popups für Portale & Tiere) */
+        #detail-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 11000; display: none;
             flex-direction: column; align-items: center; justify-content: center;
             padding: 20px; box-sizing: border-box;
         }
         .detail-card {
-            background: var(--panel); border: 2px solid var(--portal);
+            background: var(--panel); border: 2px solid var(--accent);
             border-radius: 20px; width: 100%; max-width: 400px; overflow: hidden;
             display: flex; flex-direction: column; align-items: center;
         }
-        #detail-img { width: 100%; height: 300px; object-fit: cover; }
-        .detail-info { padding: 20px; text-align: center; width: 100%; }
+        #detail-img { width: 100%; height: 300px; object-fit: cover; background: #000; }
+        .detail-info { padding: 20px; text-align: center; width: 100%; box-sizing: border-box; }
 
         /* Dashboard & Marker */
         .dashboard { position: fixed; bottom: 0; left: 0; width: 100%; height: 40vh; background: var(--panel); border-top: 2px solid var(--accent); z-index: 5000; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; }
@@ -43,11 +43,16 @@
         .tab-btn.active { background: var(--accent); color: black; }
         .content-scroll { flex: 1; overflow-y: auto; }
 
-        .monster-marker { font-size: 50px; cursor: pointer; filter: drop-shadow(0 0 10px var(--accent)); z-index: 10; padding: 15px; }
+        /* Marker Styles */
+        .monster-marker { width: 60px; height: 60px; background-size: cover; background-position: center; border-radius: 12px; border: 2px solid var(--accent); cursor: pointer; filter: drop-shadow(0 0 10px var(--accent)); }
         .portal-marker { width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--portal); background-size: cover; background-position: center; box-shadow: 0 0 15px var(--portal); cursor: pointer; }
 
         #camera-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; }
         #video { width: 100%; max-height: 80%; object-fit: cover; }
+
+        /* Eco-Dex Design */
+        .dex-item { background: var(--card); padding: 10px; border-radius: 12px; min-width: 100px; text-align: center; border: 1px solid #333; }
+        .dex-item img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -61,13 +66,15 @@
 
     <button class="btn-create" onclick="openCamera()">➕ PORTAL ERSTELLEN</button>
 
-    <div id="portal-detail" onclick="closePortalDetail()">
-        <div class="detail-card" onclick="event.stopPropagation()">
-            <img id="detail-img" src="" alt="Portal Foto">
+    <!-- Kombiniertes Detail-Overlay für Portale und Monster -->
+    <div id="detail-overlay" onclick="closeDetail()">
+        <div class="detail-card" id="main-card" onclick="event.stopPropagation()">
+            <img id="detail-img" src="" alt="Detail Foto">
             <div class="detail-info">
-                <h2 id="detail-name" style="margin: 0; color: var(--portal);">Name</h2>
-                <p style="color: #888; margin: 10px 0;">Energie wird übertragen...</p>
-                <button class="stat-badge" style="background: var(--portal); border:none; width: 100%; padding: 15px;" onclick="closePortalDetail()">SCHLIESSEN</button>
+                <h2 id="detail-name" style="margin: 0; color: var(--accent);">NAME</h2>
+                <p id="detail-desc" style="color: #888; margin: 10px 0;">Objekt-Informationen...</p>
+                <button id="action-btn" class="stat-badge" style="background: var(--accent); border:none; width: 100%; padding: 15px; color: black;" onclick="handleAction()">AKTION</button>
+                <p onclick="closeDetail()" style="margin-top: 15px; font-size: 12px; opacity: 0.5; cursor:pointer;">Schließen</p>
             </div>
         </div>
     </div>
@@ -88,30 +95,139 @@
             <button id="btn-stat" class="tab-btn" onclick="showTab('stat')">Status</button>
         </div>
         <div id="tab-dex" class="content-scroll">
-            <div id="dexList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px;"></div>
+            <div id="dexList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px;">
+                <p style="opacity: 0.3; font-size: 12px;">Noch keine EcoMons gefangen...</p>
+            </div>
         </div>
-        <div id="tab-inv" class="content-scroll" style="display:none;"></div>
-        <div id="tab-stat" class="content-scroll" style="display:none;"></div>
+        <div id="tab-inv" class="content-scroll" style="display:none; padding: 10px;">
+            <div class="dex-item" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span>Cyber-Bälle</span> <b id="inv-balls">20</b>
+            </div>
+            <div class="dex-item" style="display:flex; justify-content: space-between; align-items: center;">
+                <span>Radar-Energie</span> <b id="inv-radar">0</b>
+            </div>
+        </div>
+        <div id="tab-stat" class="content-scroll" style="display:none; padding: 15px; text-align: center;">
+            <h3 style="color:var(--accent)">E-CO-LEVEL 1</h3>
+            <p>Sammle Energie an Portalen, um dein Radar zu verbessern.</p>
+        </div>
     </div>
 
     <script>
         let map, userPos, userMarker;
         let balls = 20, radars = 0;
-        let lastPortalTime = 0;
+        let activeObject = null;
+        let myMonsters = JSON.parse(localStorage.getItem('myMonsters') || '{}');
         let customPortals = JSON.parse(localStorage.getItem('myPortals') || '[]');
+
+        const species = [
+            { n: "Pyrox", img: "pyrox.png", desc: "The Ignis Sentinel" },
+            { n: "Gastroq", img: "gastroq.png", desc: "The Aquarian Mechanist" },
+            { n: "Aethel", img: "aethel.png", desc: "The Ethereal Weaver" },
+            { n: "Kinetix", img: "kinetix.png", desc: "The Kinetic Vanguard" }
+        ];
 
         navigator.geolocation.watchPosition(p => {
             userPos = [p.coords.longitude, p.coords.latitude];
             if (!map) {
-                map = new maplibregl.Map({ container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', center: userPos, zoom: 17, pitch: 60 });
+                map = new maplibregl.Map({ 
+                    container: 'map', 
+                    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', 
+                    center: userPos, zoom: 17, pitch: 60 
+                });
                 map.on('load', () => {
-                    const el = document.createElement('div'); el.style = "width:16px; height:16px; background:white; border-radius:50%; border:3px solid var(--accent);";
+                    const el = document.createElement('div'); 
+                    el.style = "width:16px; height:16px; background:white; border-radius:50%; border:3px solid var(--accent); box-shadow: 0 0 10px var(--accent);";
                     userMarker = new maplibregl.Marker(el).setLngLat(userPos).addTo(map);
                     loadCustomPortals();
+                    startMonsterSpawning();
+                    renderDex();
                 });
             } else { userMarker.setLngLat(userPos); }
         }, null, { enableHighAccuracy: true });
 
+        // --- MONSTER LOGIK ---
+        function startMonsterSpawning() {
+            setInterval(() => {
+                if(!userPos) return;
+                const spawnPos = [
+                    userPos[0] + (Math.random() - 0.5) * 0.005,
+                    userPos[1] + (Math.random() - 0.5) * 0.005
+                ];
+                const type = species[Math.floor(Math.random() * species.length)];
+                addMonsterToMap(spawnPos, type);
+            }, 15000); // Alle 15 Sekunden ein neues Tier
+        }
+
+        function addMonsterToMap(pos, type) {
+            const el = document.createElement('div');
+            el.className = 'monster-marker';
+            el.style.backgroundImage = `url(${type.img})`;
+            
+            const marker = new maplibregl.Marker({element: el}).setLngLat(pos).addTo(map);
+            
+            el.onclick = () => {
+                activeObject = { ...type, pos, marker, type: 'monster' };
+                openDetail(activeObject);
+            };
+        }
+
+        // --- UI & AKTIONEN ---
+        function openDetail(obj) {
+            activeObject = obj;
+            const btn = document.getElementById('action-btn');
+            const card = document.getElementById('main-card');
+
+            document.getElementById('detail-img').src = obj.img || obj.image;
+            document.getElementById('detail-name').innerText = obj.n ? obj.n.toUpperCase() : obj.name.toUpperCase();
+            document.getElementById('detail-desc').innerText = obj.desc || "Portal Energiequelle";
+            
+            if(obj.type === 'monster') {
+                btn.innerText = "EINFANGEN (1 ⚾)";
+                btn.style.background = "var(--accent)";
+                card.style.borderColor = "var(--accent)";
+            } else {
+                btn.innerText = "ENERGIE ABSORBIEREN";
+                btn.style.background = "var(--portal)";
+                card.style.borderColor = "var(--portal)";
+            }
+            
+            document.getElementById('detail-overlay').style.display = 'flex';
+        }
+
+        function handleAction() {
+            if(!activeObject) return;
+
+            if(activeObject.type === 'monster') {
+                if(balls <= 0) return alert("Keine Cyber-Bälle mehr!");
+                balls--;
+                updateUI();
+                
+                if(Math.random() > 0.3) { // 70% Fangchance
+                    alert(activeObject.n + " wurde gefangen!");
+                    if(!myMonsters[activeObject.n]) {
+                        myMonsters[activeObject.n] = { ...activeObject, count: 1, marker: null };
+                    } else {
+                        myMonsters[activeObject.n].count++;
+                    }
+                    localStorage.setItem('myMonsters', JSON.stringify(myMonsters));
+                    activeObject.marker.remove();
+                    renderDex();
+                    closeDetail();
+                } else {
+                    alert("Entwischt! Versuch es nochmal.");
+                }
+            } else {
+                radars += 5;
+                updateUI();
+                alert("Portal-Energie gespeichert: +5 Radar-Punkte!");
+                closeDetail();
+            }
+        }
+
+        function closeDetail() { document.getElementById('detail-overlay').style.display = 'none'; }
+
+        // --- PORTAL SYSTEM ---
         async function openCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -127,16 +243,14 @@
         }
 
         function takePhoto() {
-            const portalName = prompt("Wie soll dieses Portal heißen?", "Neues Portal");
+            const portalName = prompt("Portal Name?", "Basis Alpha");
             if(!portalName) return;
-
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
             canvas.width = video.videoWidth; canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             const photoData = canvas.toDataURL('image/jpeg', 0.5);
-            
-            const newP = { pos: userPos, image: photoData, name: portalName, id: Date.now() };
+            const newP = { pos: userPos, image: photoData, name: portalName, type: 'portal', id: Date.now() };
             customPortals.push(newP);
             localStorage.setItem('myPortals', JSON.stringify(customPortals));
             addPortalToMap(newP);
@@ -147,37 +261,37 @@
             const el = document.createElement('div');
             el.className = 'portal-marker';
             el.style.backgroundImage = `url(${pData.image})`;
-            el.onclick = () => openPortalDetail(pData);
+            el.onclick = () => openDetail({...pData, type: 'portal'});
             new maplibregl.Marker({element: el}).setLngLat(pData.pos).addTo(map);
         }
 
         function loadCustomPortals() { customPortals.forEach(p => addPortalToMap(p)); }
 
-        function openPortalDetail(pData) {
-            document.getElementById('detail-img').src = pData.image;
-            document.getElementById('detail-name').innerText = pData.name.toUpperCase();
-            document.getElementById('portal-detail').style.display = 'flex';
-
-            // Energie-Logik (1 Min Cooldown)
-            const now = Date.now();
-            if(now - lastPortalTime > 60000) {
-                lastPortalTime = now;
-                radars += 3;
-                updateUI();
-                alert("Portal-Energie übertragen!");
-            }
-        }
-
-        function closePortalDetail() { document.getElementById('portal-detail').style.display = 'none'; }
-
+        // --- HILFSFUNKTIONEN ---
         function updateUI() {
             document.getElementById('topBalls').innerText = balls;
+            document.getElementById('inv-balls').innerText = balls;
             document.getElementById('topRadar').innerText = radars;
+            document.getElementById('inv-radar').innerText = radars;
+        }
+
+        function renderDex() {
+            const list = document.getElementById('dexList');
+            const entries = Object.values(myMonsters);
+            if(entries.length === 0) return;
+            
+            list.innerHTML = entries.map(m => `
+                <div class="dex-item">
+                    <img src="${m.img}">
+                    <div style="font-size:10px; font-weight:bold;">${m.n}</div>
+                    <div style="font-size:9px; color:var(--accent)">x${m.count}</div>
+                </div>
+            `).join('');
         }
 
         function showTab(t) {
             document.querySelectorAll('.content-scroll').forEach(s => s.style.display = 'none');
-            document.getElementById('tab-' + t).style.display = 'block';
+            document.getElementById('tab-' + t).style.display = t === 'dex' ? 'flex' : 'block';
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('btn-' + t).classList.add('active');
         }
